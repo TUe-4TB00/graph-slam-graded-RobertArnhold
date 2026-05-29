@@ -40,7 +40,7 @@ def optimize(graph, initial_estimate):
 
     # TODO: Perform the optimization and print the result
     result = optimizer.optimize()
-    print("\nFinal Result:\n{}".format(result))
+    # print("\nFinal Result:\n{}".format(result))
 
     return result
 
@@ -77,8 +77,6 @@ def minimize_marginals(graph, initial_estimate, pose_options):
 
 
 
-
-
 def minimize_errors(graph, initial_estimate, pose_options):
     # TODO: compute the sum of the errors and return it along with the best pose and landmark
     
@@ -86,16 +84,20 @@ def minimize_errors(graph, initial_estimate, pose_options):
     best_landmark = 0    # chosen landmark (1 or 2)
     min_error = np.inf
     
-    # TODO: create a list of errors (each index corresponds to a pose) and add the error of each pose to the list
-    list_of_errors = []
-
     for pose_nr, pose_5 in pose_options.items():
+        # print(f"\n>>> Test pose '{pose_nr}'")
+
+        # TODO: create a list of errors (each index corresponds to a pose) and add the error of each pose to the list
+        list_of_errors = []
         
         #init lowest error for this pose option
         pose_lowest_error = np.inf
         pose_best_landmark = 0
         
         for landmark_option in [1, 2]:
+            combination_error = 0
+            # print(f"  ->Test combinatio: Pose '{pose_nr}' + Landmark L({landmark_option})")
+            
             test_graph = gtsam.NonlinearFactorGraph(graph)
             test_estimate = gtsam.Values(initial_estimate)
             
@@ -104,22 +106,36 @@ def minimize_errors(graph, initial_estimate, pose_options):
 
             test_graph = add_landmark_measurement(test_graph, result, pose_5, landmark_option)
             final_result = optimize(test_graph, test_estimate)
-            
-            # test_graph.error() to compute total sum of squared errors
-            sum_of_errors = test_graph.error(final_result)
-            
-            if sum_of_errors < pose_lowest_error:
-                pose_lowest_error = sum_of_errors
+
+            for i in [1, 2, 3]:
+                current_pose = final_result.atPose2(X(i))
+                
+                if i == 1:
+                    pose_error = abs(current_pose.x()) + abs(current_pose.y()) + abs(current_pose.theta())
+                elif i == 2:
+                    pose_error = abs(current_pose.x() - 2) + abs(current_pose.y()) + abs(current_pose.theta())
+                else:
+                    pose_error = abs(current_pose.x() - 4) + abs(current_pose.y()) + abs(current_pose.theta())
+
+                combination_error += pose_error
+
+
+            if combination_error < pose_lowest_error:
+                pose_lowest_error = combination_error
                 pose_best_landmark = landmark_option
+                print(f"New lowest error for pose '{pose_nr}': {pose_lowest_error:.6f} with L({pose_best_landmark})")
                 
         list_of_errors.append(pose_lowest_error)
-        
+
         if pose_lowest_error < min_error:
             min_error = pose_lowest_error
             best_pose = pose_nr
             best_landmark = pose_best_landmark
+            print(f"New best combination: '{best_pose}' + L({best_landmark}) with error {min_error:.6f} ***")
 
     # TODO: compute the sum of the errors and return it along with the best pose and landmark
+    
     sum_of_errors = min_error
 
     return best_pose, best_landmark, sum_of_errors
+
